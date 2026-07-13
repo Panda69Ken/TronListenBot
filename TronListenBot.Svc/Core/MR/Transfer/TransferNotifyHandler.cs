@@ -39,7 +39,6 @@ namespace TronListenBot.Svc.Core.MR.Transfer
             if (request.Parameter.Amount == 0 && unType.Contains(type) == false) return;
 
             if (request.ParamJson.IndexOf(_config.TronConfig.Address) > -1)
-            //if (true)
             {
                 var wallet = _tron.TronClient.GetWallet();
                 var contractClient = _tron.ContractClientFactory.CreateClient(ContractProtocol.TRC20);

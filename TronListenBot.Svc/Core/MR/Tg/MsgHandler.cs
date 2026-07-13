@@ -155,17 +155,6 @@ namespace TronListenBot.Svc.Core.MR
             transactions.AddRange(trc20s);
             var record = transactions.OrderByDescending(o => o.TransactionTime).ToList();
 
-            ////质押总额
-            //long totalFrozen = 0;
-            //foreach (var f in accountInfo.FrozenV2)
-            //    totalFrozen += f.Amount;
-            //var frozen = TronUnit.SunToTRX(totalFrozen);
-
-            ////已投票
-            //long votesCounts = 0;
-            //foreach (var c in accountInfo.Votes)
-            //    votesCounts += c.VoteCount;
-
             var text = $"信息\n";
             text += $"地址: {_config.TronConfig.Address}\n";
             text += $"TRX余额: {TronUnit.SunToTRX(accountInfo.Balance)}\n";

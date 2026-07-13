@@ -67,7 +67,6 @@ namespace TronListenBot.Svc.Core.Block
                            : item.Transaction?.GetTxid();
 
                     if (contractTypes.Contains(type))
-                    //if (type == ContractType.WithdrawExpireUnfreezeContract)
                     {
                         string paramJson = "";
 
@@ -75,18 +74,14 @@ namespace TronListenBot.Svc.Core.Block
 
                         var Json = JsonConvert.DeserializeObject<TransactionParameter>(paramJson);
 
-                        //_logger.LogInformation($"交易内容，node:{request.Node}，Txid：{txid}，ParamJson：{paramJson}，Type：{type}");
-                        //if (txid == "5e2744261e1f2cab055862ba0a6c586e543c47b9727f57dbe3137778218c9e9b")
-                        //{
-                            await _mediator.Send(new TransferCommand
-                            {
-                                Txid = txid,
-                                Transaction = item,
-                                Parameter = Json,
-                                ParamJson = paramJson,
-                                Node = request.Node
-                            });
-                        //}
+                        await _mediator.Send(new TransferCommand
+                        {
+                            Txid = txid,
+                            Transaction = item,
+                            Parameter = Json,
+                            ParamJson = paramJson,
+                            Node = request.Node
+                        });
                     }
                 }
 
