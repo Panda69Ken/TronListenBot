@@ -18,10 +18,15 @@ TronListenBot 是一个监控Tron地址交易信息的.Net 小程序，无需数
 
 ### 使用到的开完库
 [FreeSql](https://github.com/dotnetcore/FreeSql) ![Github stars](https://img.shields.io/github/stars/dotnetcore/FreeSql?style=social)
+
 [NLog](https://github.com/NLog/NLog) ![Github stars](https://img.shields.io/github/stars/NLog/NLog?style=social)
+
 [Telegram](https://github.com/TelegramBots/Telegram.Bot) ![Github stars](https://img.shields.io/github/stars/TelegramBots/Telegram.Bot?style=social)
+
 [Newtonsoft.Json](https://github.com/JamesNK/Newtonsoft.Json) ![Github stars](https://img.shields.io/github/stars/JamesNK/Newtonsoft.Json?style=social)
+
 [MediatR](https://github.com/LuckyPennySoftware/MediatR) ![Github stars](https://img.shields.io/github/stars/LuckyPennySoftware/MediatR?style=social)
+
 TronNet 原库很久没更新维护，使用的是自己Fork的版本
 [TronNet](https://github.com/Panda69Ken/TronNet) ![Github stars](https://img.shields.io/github/stars/Panda69Ken/TronNet?style=social)
 
