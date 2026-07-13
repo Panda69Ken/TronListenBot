@@ -1,0 +1,59 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+	<PropertyGroup>
+		<ServerGarbageCollection>false</ServerGarbageCollection>
+		<ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<UserSecretsId>dotnet-TronListenBot.Svc-3b4d1f33-3424-40a7-bd56-c5f8a65e1bed</UserSecretsId>
+		<DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <None Remove="Dockerfile" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Content Include="Dockerfile">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+		<PackageReference Include="Grpc.Core" Version="2.46.6" />
+		<PackageReference Include="Google.Protobuf" Version="3.34.1" />
+		<PackageReference Include="Nethereum.ABI" Version="6.1.0" />
+		<PackageReference Include="Grpc.Net.ClientFactory" Version="2.76.0" />
+		<PackageReference Include="Grpc.Tools" Version="2.80.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\TronListenBot.Domain\TronListenBot.Domain.csproj" />
+	</ItemGroup>
+
+
+	<ItemGroup>
+		<Reference Include="StowayNet.Extensions.DependencyInjection">
+			<HintPath>..\dll\StowayNet.Extensions.DependencyInjection.dll</HintPath>
+		</Reference>
+		<Reference Include="TronNet">
+			<HintPath>..\dll\TronNet.dll</HintPath>
+		</Reference>
+		<Reference Include="TronNet.ABI">
+			<HintPath>..\dll\TronNet.ABI.dll</HintPath>
+		</Reference>
+		<Reference Include="TronNet.Crypto">
+			<HintPath>..\dll\TronNet.Crypto.dll</HintPath>
+		</Reference>
+		<Reference Include="TronNet.Protocol">
+			<HintPath>..\dll\TronNet.Protocol.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+</Project>
