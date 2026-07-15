@@ -4,6 +4,7 @@ TronListenBot 是一个监控Tron地址交易信息的.Net 小程序，无需数
 
 ### 简介
 一个监控Tron地址信息的Telegram机器人，无需数据库，无需云服务器，本地电脑能够科学上网即可使用；通过监控监控波场地址，把USDT、TRX交易监控，质押、解压获取能量带宽监控，委托、回收资源监控，领取投票/出块奖励监控，通过Telegram机器人发送提醒信息！
+查看Binance 和 OKX 商家C2C买卖实时交易top10 记录。
 
 ### 如何创建Telegram机器人
 关注机器[@BotFather](https://t.me/BotFather) ，输入指令 /newbot 按照提示即可快速创建。

@@ -7,6 +7,8 @@ namespace TronListenBot.Svc.Core.Service
         string CreateKey(params object[] args);
 
         string SetChatDetaileLock(string token);
+
+        string SetMarketKeyLock(string token);
     }
 
     public class CacheService(IMemoryCache memory) : ICacheService
@@ -23,6 +25,10 @@ namespace TronListenBot.Svc.Core.Service
             return CreateKey($"chatDetaile_lock:{token}");
         }
 
+        public string SetMarketKeyLock(string token)
+        {
+            return CreateKey($"market:{token}");
+        }
     }
 
 }

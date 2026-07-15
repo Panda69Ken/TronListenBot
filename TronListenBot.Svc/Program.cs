@@ -62,6 +62,7 @@ builder.Services.AddSingleton<IConfigService, ConfigService>();
 builder.Services.AddSingleton<ICacheService, CacheService>();
 
 builder.Services.AddSingleton<TransferBlock>();
+builder.Services.AddSingleton<C2CBlock>();
 
 builder.Services.AddHostedService<TGWorker>();
 builder.Services.AddHostedService<ScanBlockWorker>();

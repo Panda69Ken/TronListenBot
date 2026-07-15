@@ -1,4 +1,6 @@
 ﻿using System.Numerics;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using TronListenBot.Infrastructure.Enums;
@@ -219,5 +221,28 @@ namespace TronListenBot.Svc.Core.Expansion
         }
         #endregion
 
+        public static string MD5(this string text)
+        {
+            return text.MD5(Encoding.UTF8);
+        }
+
+        public static string MD5(this string text, Encoding encoding)
+        {
+            if (text == null)
+            {
+                throw new ArgumentNullException("text");
+            }
+
+            MD5CryptoServiceProvider mD5CryptoServiceProvider = new MD5CryptoServiceProvider();
+            byte[] array = mD5CryptoServiceProvider.ComputeHash(encoding.GetBytes(text));
+            mD5CryptoServiceProvider.Clear();
+            StringBuilder stringBuilder = new StringBuilder();
+            for (int i = 0; i < array.Length; i++)
+            {
+                stringBuilder.Append(array[i].ToString("x2"));
+            }
+
+            return stringBuilder.ToString();
+        }
     }
 }

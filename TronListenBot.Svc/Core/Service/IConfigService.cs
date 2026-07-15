@@ -6,6 +6,8 @@ namespace TronListenBot.Svc.Core.Service
     {
         public TgConfig TgConfig { get; }
         public TronConfig TronConfig { get; }
+        public string OKXC2CUrl { get; }
+        public string BinanceC2CUrl { get; }
     }
 
     public class ConfigService(IConfiguration configuration) : IConfigService
@@ -35,7 +37,10 @@ namespace TronListenBot.Svc.Core.Service
         public TgConfig TgConfig => GetSettingT<TgConfig>("TgConfig");
 
         public TronConfig TronConfig => GetSettingT<TronConfig>("TronConfig");
-    }
 
+        public string OKXC2CUrl => GetSetting("OKXC2CUrl");
+
+        public string BinanceC2CUrl => GetSetting("BinanceC2CUrl");
+    }
 
 }

@@ -1,21 +1,26 @@
 using MediatR;
+using Newtonsoft.Json;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using TronListenBot.Svc.Core.Block;
+using TronListenBot.Svc.Core.Model;
 using TronListenBot.Svc.Core.MR.Command;
 using TronListenBot.Svc.Core.Service;
 
 namespace TronListenBot.Svc.Worker
 {
-    public class TGWorker(ILogger<TGWorker> logger, 
-        IMediator mediator, 
-        ITelegramBotClient tgBotClient, 
-        IConfigService config) : BackgroundService
+    public class TGWorker(ILogger<TGWorker> logger,
+        IMediator mediator,
+        ITelegramBotClient tgBotClient,
+        IConfigService config,
+        C2CBlock marketsBlock) : BackgroundService
     {
         private readonly ILogger<TGWorker> _logger = logger;
         private readonly IMediator _mediator = mediator;
         private readonly ITelegramBotClient _tgBotClient = tgBotClient;
         private readonly IConfigService _config = config;
+        private readonly C2CBlock _marketsBlock = marketsBlock;
 
         string _userName = "";
 
@@ -26,6 +31,8 @@ namespace TronListenBot.Svc.Worker
             var me = await _tgBotClient.GetMe(cancellationToken: stoppingToken);
 
             _userName = me.Username ?? "";
+
+            await _tgBotClient.DropPendingUpdates();
 
             await AddCommand(_tgBotClient, stoppingToken);
 
@@ -42,6 +49,10 @@ namespace TronListenBot.Svc.Worker
             {
                 new() { Command = "/me", Description = "我的信息" },
                 new() { Command = "/address_info", Description = "地址信息" },
+                new() { Command = "/binance_c2c_buy", Description = "Binance商家买入实时交易汇率top10" },
+                new() { Command = "/binance_c2c_sell", Description = "Binance商家卖出实时交易汇率top10" },
+                new() { Command = "/okx_c2c_sell", Description = "OKX商家购买实时交易汇率top10" },
+                new() { Command = "/okx_c2c_buy", Description = "OKX商家出售实时交易汇率top10" },
             };
 
             await bot.SetMyCommands(commands: commands, cancellationToken: ct);
@@ -90,6 +101,15 @@ namespace TronListenBot.Svc.Worker
 
         void HandleButton(ITelegramBotClient bot, CallbackQuery query)
         {
+            var value = JsonConvert.DeserializeObject<TgC2CInfo>(query.Data);
+
+            _marketsBlock.Post(new C2CModel
+            {
+                Msg = query.Message,
+                isReplyParameters = true,
+                Command = value.Command,
+                RotaType = value.RotaType
+            });
 
         }
 

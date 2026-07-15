@@ -4,6 +4,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types.Enums;
 using TronListenBot.Infrastructure.Enums;
 using TronListenBot.Infrastructure.Expansion;
+using TronListenBot.Svc.Core.Block;
 using TronListenBot.Svc.Core.Model;
 using TronListenBot.Svc.Core.MR.Command;
 using TronListenBot.Svc.Core.Service;
@@ -14,31 +15,23 @@ using TronNet.Protocol;
 
 namespace TronListenBot.Svc.Core.MR
 {
-    public class MsgHandler : IRequestHandler<TgMsgCommand>
+    public class MsgHandler(ILogger<MsgHandler> logger,
+        IConfigService config,
+        ICacheService cache,
+        ITelegramBotClient botClient,
+        ITronGridClient tronGridClient,
+        TronNetRecord tron,
+        C2CBlock marketsBlock
+            ) : IRequestHandler<TgMsgCommand>
     {
-        readonly ILogger<MsgHandler> _logger;
-        readonly IConfigService _config;
-        readonly ICacheService _cache;
-        readonly ITelegramBotClient _botClient;
-        readonly ITronGridClient _tronGridService;
-       
-        readonly TronNetRecord _tron;
+        readonly ILogger<MsgHandler> _logger = logger;
+        readonly IConfigService _config = config;
+        readonly ICacheService _cache = cache;
+        readonly ITelegramBotClient _botClient = botClient;
+        readonly ITronGridClient _tronGridService = tronGridClient;
 
-        public MsgHandler(ILogger<MsgHandler> logger,
-            IConfigService config,
-            ICacheService cache,
-            ITelegramBotClient botClient,
-            ITronGridClient tronGridClient,
-            TronNetRecord tron
-            )
-        {
-            _logger = logger;
-            _config = config;
-            _cache = cache;
-            _botClient = botClient;
-            _tronGridService = tronGridClient;
-            _tron = tron;
-        }
+        readonly TronNetRecord _tron = tron;
+        readonly C2CBlock _marketsBlock = marketsBlock;
 
         public async Task Handle(TgMsgCommand request, CancellationToken cancellationToken)
         {
@@ -101,6 +94,12 @@ namespace TronListenBot.Svc.Core.MR
                     break;
                 case "/address_info":
                     text = await AddressInfo(request);
+                    break;
+                case "/binance_c2c_sell":
+                case "/binance_c2c_buy":
+                case "/okx_c2c_sell":
+                case "/okx_c2c_buy":
+                    _marketsBlock.Post(new C2CModel { Msg = request.Update.Message, Command = command });
                     break;
             }
 
