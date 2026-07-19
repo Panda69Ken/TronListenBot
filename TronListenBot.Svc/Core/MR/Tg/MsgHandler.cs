@@ -1,5 +1,4 @@
-﻿using Google.Protobuf;
-using MediatR;
+﻿using MediatR;
 using Telegram.Bot;
 using Telegram.Bot.Types.Enums;
 using TronListenBot.Infrastructure.Enums;
@@ -9,9 +8,6 @@ using TronListenBot.Svc.Core.Model;
 using TronListenBot.Svc.Core.MR.Command;
 using TronListenBot.Svc.Core.Service;
 using TronNet;
-using TronNet.Contracts;
-using TronNet.Crypto;
-using TronNet.Protocol;
 
 namespace TronListenBot.Svc.Core.MR
 {
@@ -20,17 +16,14 @@ namespace TronListenBot.Svc.Core.MR
         ICacheService cache,
         ITelegramBotClient botClient,
         ITronGridClient tronGridClient,
-        TronNetRecord tron,
         C2CBlock marketsBlock
-            ) : IRequestHandler<TgMsgCommand>
+        ) : IRequestHandler<TgMsgCommand>
     {
         readonly ILogger<MsgHandler> _logger = logger;
         readonly IConfigService _config = config;
         readonly ICacheService _cache = cache;
         readonly ITelegramBotClient _botClient = botClient;
         readonly ITronGridClient _tronGridService = tronGridClient;
-
-        readonly TronNetRecord _tron = tron;
         readonly C2CBlock _marketsBlock = marketsBlock;
 
         public async Task Handle(TgMsgCommand request, CancellationToken cancellationToken)
@@ -123,54 +116,37 @@ namespace TronListenBot.Svc.Core.MR
 
         async Task<string> AddressInfo(TgMsgCommand request)
         {
-            var wallet = _tron.TronClient.GetWallet();
-            var contractClient = _tron.ContractClientFactory.CreateClient(ContractProtocol.TRC20);
+            var account = await _tronGridService.GetAccountv2(_config.TronConfig.Address);
 
-            var resultUsdt = await contractClient.BalanceOfAsync(_config.TronConfig.Contract, _config.TronConfig.Address);
-
-            //查询账户信息
-            var accountInfo = await wallet.GetProtocol().GetAccountAsync(new Account
-            {
-                Address = ByteString.CopyFrom(Base58Encoder.DecodeFromBase58Check(_config.TronConfig.Address))
-            }, headers: wallet.GetHeaders());
-
-            //带宽和能量
-            var accountResource = await wallet.GetProtocol().GetAccountResourceAsync(new Account
-            {
-                Address = ByteString.CopyFrom(Base58Encoder.DecodeFromBase58Check(_config.TronConfig.Address))
-            }, headers: wallet.GetHeaders());
-
-            //获取待领权益
-            var accountReward = await wallet.GetProtocol().GetRewardInfoAsync(new BytesMessage
-            {
-                Value = ByteString.CopyFrom(Base58Encoder.DecodeFromBase58Check(_config.TronConfig.Address))
-            }, headers: wallet.GetHeaders());
+            if (account == null) return $"地址:'{_config.TronConfig.Address}'没查到数据！";
 
             //交易记录
             var transactions = new List<TransactionRecord>();
-            var trc10s = await _tronGridService.GetTRC10Transactions(_config.TronConfig.Address);
-            var trc20s = await _tronGridService.GetTRC20Transactions(_config.TronConfig.Address);
+            var trc10s = await _tronGridService.GetTRC10Transactions(_config.TronConfig.Address, 200);
+            var trc20s = await _tronGridService.GetTRC20Transactions(_config.TronConfig.Address, 200);
             transactions.AddRange(trc10s);
             transactions.AddRange(trc20s);
             var record = transactions.OrderByDescending(o => o.TransactionTime).ToList();
 
             var text = $"信息\n";
             text += $"地址: {_config.TronConfig.Address}\n";
-            text += $"TRX余额: {TronUnit.SunToTRX(accountInfo.Balance)}\n";
-            text += $"USDT余额: {resultUsdt}\n\n";
+            text += $"TRX余额: {TronUnit.SunToTRX(account.Balance)}\n";
+            var resultUsdt = account.WithPriceTokens.FirstOrDefault(a => a.TokenAbbr == CurrencyEnum.USDT.ToString());
+            text += $"USDT余额: {TronUnit.SunToTRX(resultUsdt != null ? resultUsdt.Balance : 0)}\n\n";
 
             text += $"🔸资源 -----\n";
-            text += $"质押总额: {accountResource.TronPowerLimit} TRX\n";
-            text += $"免费带宽: {accountResource.FreeNetLimit - accountResource.FreeNetUsed} / {accountResource.FreeNetLimit}\n";
-            text += $"质押带宽: {accountResource.NetLimit - accountResource.NetUsed} / {accountResource.NetLimit}\n";
-            text += $"能量: {accountResource.EnergyLimit - accountResource.EnergyUsed} / {accountResource.EnergyLimit}\n";
-            text += $"已投票: {accountResource.TronPowerUsed}/{accountResource.TronPowerLimit}\n";
-            text += $"待领权益:{TronUnit.SunToTRX(accountReward.Num)}\n";
-            text += $"创建时间: {accountInfo.CreateTime.GetMilliTime().AddHours(8)}\n";
-            text += $"活跃时间: {accountInfo.LatestOprationTime.GetMilliTime().AddHours(8)}\n\n";
+            text += $"质押总额: {TronUnit.SunToTRX(account.TotalFrozenV2)} TRX\n";
+            text += $"免费带宽: {account.Bandwidth.FreeNetLimit - account.Bandwidth.FreeNetUsed} / {account.Bandwidth.FreeNetLimit}\n";
+            text += $"质押带宽: {account.Bandwidth.NetLimit - account.Bandwidth.NetUsed} / {account.Bandwidth.NetLimit}\n";
+            text += $"能量: {account.Bandwidth.EnergyLimit - account.Bandwidth.EnergyUsed} / {account.Bandwidth.EnergyLimit}\n";
+            text += $"已投票: {TronUnit.SunToTRX(account.FrozenForEnergyV2 + account.FrozenForBandWidthV2)}/{account.VoteTotal}\n";
+            text += $"待领权益:{TronUnit.SunToTRX(account.RewardNum)} TRX\n";
+            text += $"创建时间: {account.Date_created.GetMilliTime().AddHours(8)}\n";
+            text += $"活跃时间: {account.Latest_operation_time.GetMilliTime().AddHours(8)}\n\n";
 
             text += $"🔸最近交易 -----\n";
-            text += $"转账笔数: {record.Count}次 (⬇{record.Count(a => a.TransactionType == 1)}| ⬆{record.Count(a => a.TransactionType == 2)})\n";
+            text += $"交易笔数: {account.TotalTransactionCount}\n";
+            text += $"转账笔数: {account.Transactions}次 (⬇{account.Transactions_In}| ⬆{account.Transactions_Out})\n";
 
             var number = 0;
             foreach (var item in record)

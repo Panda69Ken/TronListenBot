@@ -11,21 +11,28 @@ namespace TronListenBot.Svc.Core.Service
     public interface ITronGridClient
     {
         /// <summary>
+        /// 获取账户详细信息
+        /// </summary>
+        /// <param name="address"></param>
+        /// <returns></returns>
+        Task<Accountv2> GetAccountv2(string address);
+
+        /// <summary>
         /// 获取账户历史转账记录（包括trc10转账和TRX转账）
         /// </summary>
         /// <returns></returns>
-        Task<List<TransactionRecord>> GetTRC10Transactions(string address);
+        Task<List<TransactionRecord>> GetTRC10Transactions(string address, int total);
 
         /// <summary>
         /// 获取账户历史合约交易记录（TRC20、TRC721转账记录）
         /// </summary>
         /// <returns></returns>
-        Task<List<TransactionRecord>> GetTRC20Transactions(string address);
+        Task<List<TransactionRecord>> GetTRC20Transactions(string address, int total);
     }
 
     public class TronGridClient(ILogger<TronGridClient> _logger, IConfigService _config, IHttpClientFactory _clientFactory) : ITronGridClient
     {
-        private async Task<string> RequestHandle(HttpMethod method, string path, object data = null)
+        private async Task<string?> RequestHandle(HttpMethod method, string path, object data = null, bool isGrid = true)
         {
             string result;
             var param = "";
@@ -35,15 +42,33 @@ namespace TronListenBot.Svc.Core.Service
                 param = Utils.BuildQuery(data);
 
             var httpClient = _clientFactory.CreateTryClient();
+
             httpClient.BaseAddress = new Uri(_config.TronConfig.TronGrid);
 
-            var num = new Random().Next(0, _config.TronConfig.ApiKeys.Count);
+            if (isGrid)
+            {
+                httpClient.BaseAddress = new Uri(_config.TronConfig.TronGrid);
 
-            var apiKey = _config.TronConfig.ApiKeys[num];
+                var num = new Random().Next(0, _config.TronConfig.ApiKeys.Count);
 
-            httpClient.SetHeaders(new Dictionary<string, string> {
-                { "TRON-PRO-API-KEY", apiKey }
-            });
+                var apiKey = _config.TronConfig.ApiKeys[num];
+
+                httpClient.SetHeaders(new Dictionary<string, string> {
+                    { "TRON-PRO-API-KEY", apiKey }
+                });
+            }
+            else
+            {
+                httpClient.BaseAddress = new Uri(_config.TronConfig.TronApi);
+
+                var num = new Random().Next(0, _config.TronConfig.TronApiKeys.Count);
+
+                var apiKey = _config.TronConfig.TronApiKeys[num];
+
+                httpClient.SetHeaders(new Dictionary<string, string> {
+                    { "TRON-PRO-API-KEY", apiKey }
+                });
+            }
 
             try
             {
@@ -59,31 +84,43 @@ namespace TronListenBot.Svc.Core.Service
                 if (!rep.IsSuccessStatusCode)
                 {
                     result = await rep.Content.ReadAsStringAsync();
-                    _logger.LogError($"拒绝访问,apiKey:{apiKey},path:{path},param:{data.ToJsonEx()},msg:{rep.StatusCode},result:{result}");
+                    _logger.LogError($"拒绝访问,path:{path},param:{data.ToJsonEx()},msg:{rep.StatusCode},result:{result}");
                     return result;
                 }
                 result = await rep.Content.ReadAsStringAsync();
 
-                _logger.LogInformation($"stopwatch apiKey:{apiKey},path:{path},param:{data.ToJsonEx()}");
+                _logger.LogInformation($"stopwatch path:{path},param:{data.ToJsonEx()}");
             }
             catch (TimeoutException ex)
             {
-                _logger.LogError($"访问超时,apiKey:{apiKey},path:{path},param:{data.ToJsonEx()},msg:{ex.Message}");
-                result = "{\"Msg\":\"" + ex.Message + "\",\"Code\":\"408\"}";
+                _logger.LogError($"访问超时,path:{path},param:{data.ToJsonEx()},msg:{ex.Message}");
+                //"{\"Msg\":\"" + ex.Message + "\",\"Code\":\"408\"}";
             }
             catch (Exception ex)
             {
-                _logger.LogError($"访问异常,apiKey:{apiKey},path:{path},param:{data.ToJsonEx()},msg:{ex.Message}");
-                if (ex.Message.IndexOf("timed out") >= 0 || ex.Message.IndexOf("Bad Gateway") >= 0)
-                    result = "{\"Msg\":\"" + ex.Message + "\",\"Code\":\"408\"}";
-                else
-                    result = "{\"Msg\":\"" + ex.Message + "\",\"Code\":\"500\"}";
+                _logger.LogError($"访问异常,path:{path},param:{data.ToJsonEx()},msg:{ex.Message}");
+                //if (ex.Message.IndexOf("timed out") >= 0 || ex.Message.IndexOf("Bad Gateway") >= 0)
+                //    result = "{\"Msg\":\"" + ex.Message + "\",\"Code\":\"408\"}";
+                //else
+                //    result = "{\"Msg\":\"" + ex.Message + "\",\"Code\":\"500\"}";
             }
 
-            return result;
+            return null;
         }
 
-        public async Task<List<TransactionRecord>> GetTRC10Transactions(string address)
+        public async Task<Accountv2> GetAccountv2(string address)
+        {
+            var json = await RequestHandle(HttpMethod.Get, "/api/accountv2", new
+            {
+                address
+            }, false);
+
+            if (json == null) return null;
+
+            return JsonConvert.DeserializeObject<Accountv2>(json);
+        }
+
+        public async Task<List<TransactionRecord>> GetTRC10Transactions(string address, int total)
         {
             var path = $"/v1/accounts/{address}/transactions";
 
@@ -106,29 +143,29 @@ namespace TronListenBot.Svc.Core.Service
             {
                 var json = JsonConvert.DeserializeObject<TronGridTRXTransactionInfoResult>(result);
 
-                var datas = json.data.Where(a => a.raw_data.contract[0].type == "TransferContract" || a.raw_data.contract[0].type == "TransferAssetContract");
-
-                if (datas.Any())
+                //var datas = json.data.Where(a => a.raw_data.contract[0].type == "TransferContract" || a.raw_data.contract[0].type == "TransferAssetContract");
+                list.AddRange(json.data.Select(a => new TransactionRecord
                 {
-                    list.AddRange(datas.Select(a => new TransactionRecord
-                    {
-                        HashId = a.txID,
-                        Symbol = a.raw_data.contract[0].type == "TransferContract" ? CurrencyEnum.TRX.ToString() : "",
-                        TransactionType = a.raw_data.contract[0].parameter.value.to_address.ReplaceFirst() == address ? 1 : 2,
-                        Amount = TronUnit.SunToTRX(a.raw_data.contract[0].parameter.value.amount),
-                        TransactionTime = a.block_timestamp
-                    }));
-                }
+                    HashId = a.txID,
+                    Symbol = a.raw_data.contract[0].type == "TransferContract" ? CurrencyEnum.TRX.ToString() : "",
+                    TransactionType = a.raw_data.contract[0].parameter.value.to_address.ReplaceFirst() == address ? 1 : 2,
+                    Amount = TronUnit.SunToTRX(a.raw_data.contract[0].parameter.value.amount),
+                    TransactionTime = a.block_timestamp
+                }));
 
-                if (json.meta.links != null)
+                if (list.Count < total)
                 {
-                    if (!string.IsNullOrEmpty(json.meta.links.next))
+                    if (json.meta.links != null)
                     {
-                        path = json.meta.links.next.Replace(_config.TronConfig.TronGrid, "");
-                        param = null;
-                        goto GetList;
+                        if (!string.IsNullOrEmpty(json.meta.links.next))
+                        {
+                            path = json.meta.links.next.Replace(_config.TronConfig.TronGrid, "");
+                            param = null;
+                            goto GetList;
+                        }
                     }
                 }
+
             }
             catch (Exception ex)
             {
@@ -140,7 +177,7 @@ namespace TronListenBot.Svc.Core.Service
             return list;
         }
 
-        public async Task<List<TransactionRecord>> GetTRC20Transactions(string address)
+        public async Task<List<TransactionRecord>> GetTRC20Transactions(string address, int total)
         {
             var path = $"/v1/accounts/{address}/transactions/trc20";
 
@@ -172,13 +209,16 @@ namespace TronListenBot.Svc.Core.Service
                     TransactionTime = a.block_timestamp
                 }));
 
-                if (json.meta.links != null)
+                if (list.Count < total)
                 {
-                    if (!string.IsNullOrEmpty(json.meta.links.next))
+                    if (json.meta.links != null)
                     {
-                        path = json.meta.links.next.Replace(_config.TronConfig.TronGrid, "");
-                        param = null;
-                        goto GetList;
+                        if (!string.IsNullOrEmpty(json.meta.links.next))
+                        {
+                            path = json.meta.links.next.Replace(_config.TronConfig.TronGrid, "");
+                            param = null;
+                            goto GetList;
+                        }
                     }
                 }
             }
