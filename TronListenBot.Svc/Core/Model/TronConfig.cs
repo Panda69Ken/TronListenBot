@@ -12,6 +12,5 @@
         public string Address { get; set; } = "";
         public string TronApi { get; set; } = "";
         public required List<string> TronApiKeys { get; set; }
-        public decimal LimtAmount { get; set; }
     }
 }

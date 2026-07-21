@@ -137,6 +137,29 @@ namespace TronListenBot.Svc.Core.Model
     }
 
 
+    public class TronTransferResult
+    {
+        public int Total { get; set; }
+        public List<TransferTRXRecord> Data { get; set; }
+        public List<TransferUSDTRecord> Token_Transfers { get; set; }
+    }
+    public class TransferTRXRecord
+    {
+        public string TransactionHash { get; set; } = "";
+        public long Timestamp { get; set; }
+        public string TransferFromAddress { get; set; } = "";
+        public string TransferToAddress { get; set; } = "";
+        public long Amount { get; set; }
+    }
+    public class TransferUSDTRecord
+    {
+        public string Transaction_Id { get; set; } = "";
+        public long Block_Ts { get; set; }
+        public string From_Address { get; set; } = "";
+        public string To_Address { get; set; } = "";
+        public long Quant { get; set; }
+    }
+
     public class TransactionRecord
     {
         public string HashId { get; set; } = "";
@@ -146,7 +169,7 @@ namespace TronListenBot.Svc.Core.Model
         /// </summary>
         public int TransactionType {  get; set; }
         public decimal Amount { get; set; }
-        public long TransactionTime { get; set; }
+        public long Timestamp { get; set; }
     }
 
     public class TransactionParameter

@@ -122,11 +122,11 @@ namespace TronListenBot.Svc.Core.MR
 
             //交易记录
             var transactions = new List<TransactionRecord>();
-            var trc10s = await _tronGridService.GetTRC10Transactions(_config.TronConfig.Address, 200);
-            var trc20s = await _tronGridService.GetTRC20Transactions(_config.TronConfig.Address, 200);
+            var trc10s = await _tronGridService.GetTRXTransactions(_config.TronConfig.Address, 50);
+            var trc20s = await _tronGridService.GetUSDTTransactions(_config.TronConfig.Address, 50);
             transactions.AddRange(trc10s);
             transactions.AddRange(trc20s);
-            var record = transactions.OrderByDescending(o => o.TransactionTime).ToList();
+            var record = transactions.OrderByDescending(o => o.Timestamp).ToList();
 
             var text = $"信息\n";
             text += $"地址: {_config.TronConfig.Address}\n";
@@ -141,8 +141,8 @@ namespace TronListenBot.Svc.Core.MR
             text += $"能量: {account.Bandwidth.EnergyLimit - account.Bandwidth.EnergyUsed} / {account.Bandwidth.EnergyLimit}\n";
             text += $"已投票: {TronUnit.SunToTRX(account.FrozenForEnergyV2 + account.FrozenForBandWidthV2)}/{account.VoteTotal}\n";
             text += $"待领权益:{TronUnit.SunToTRX(account.RewardNum)} TRX\n";
-            text += $"创建时间: {account.Date_created.GetMilliTime().AddHours(8)}\n";
-            text += $"活跃时间: {account.Latest_operation_time.GetMilliTime().AddHours(8)}\n\n";
+            text += $"创建时间: {account.Date_Created.GetMilliTime().AddHours(8)}\n";
+            text += $"活跃时间: {account.Latest_Operation_Time.GetMilliTime().AddHours(8)}\n\n";
 
             text += $"🔸最近交易 -----\n";
             text += $"交易笔数: {account.TotalTransactionCount}\n";
@@ -156,7 +156,7 @@ namespace TronListenBot.Svc.Core.MR
                     number++;
 
                     var typeName = item.TransactionType == 1 ? "🟢转入" : "🔴转出";
-                    text += $"{item.TransactionTime.GetMilliTime().AddHours(8)} {typeName} <a href='{_config.TronConfig.WebsiteUrl}#/transaction/{item.HashId}'>{item.Amount} {item.Symbol}</a> \n";
+                    text += $"{item.Timestamp.GetMilliTime().AddHours(8)} {typeName} <a href='{_config.TronConfig.WebsiteUrl}#/transaction/{item.HashId}'>{item.Amount} {item.Symbol}</a> \n";
                 }
 
                 if (number == 10) break;

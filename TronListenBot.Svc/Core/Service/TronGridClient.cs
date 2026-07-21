@@ -2,7 +2,6 @@
 using System.Text;
 using TronListenBot.Infrastructure.Enums;
 using TronListenBot.Infrastructure.Expansion;
-using TronListenBot.Svc.Core.Expansion;
 using TronListenBot.Svc.Core.Model;
 using TronNet;
 
@@ -18,21 +17,21 @@ namespace TronListenBot.Svc.Core.Service
         Task<Accountv2> GetAccountv2(string address);
 
         /// <summary>
-        /// 获取账户历史转账记录（包括trc10转账和TRX转账）
+        /// 获取 TRX 转账列表
         /// </summary>
         /// <returns></returns>
-        Task<List<TransactionRecord>> GetTRC10Transactions(string address, int total);
+        Task<List<TransactionRecord>> GetTRXTransactions(string address, int total);
 
         /// <summary>
-        /// 获取账户历史合约交易记录（TRC20、TRC721转账记录）
+        /// 获取 USDT 转账列表
         /// </summary>
         /// <returns></returns>
-        Task<List<TransactionRecord>> GetTRC20Transactions(string address, int total);
+        Task<List<TransactionRecord>> GetUSDTTransactions(string address, int total);
     }
 
     public class TronGridClient(ILogger<TronGridClient> _logger, IConfigService _config, IHttpClientFactory _clientFactory) : ITronGridClient
     {
-        private async Task<string?> RequestHandle(HttpMethod method, string path, object data = null, bool isGrid = true)
+        private async Task<string?> RequestHandle(HttpMethod method, string path, object data = null)
         {
             string result;
             var param = "";
@@ -43,32 +42,15 @@ namespace TronListenBot.Svc.Core.Service
 
             var httpClient = _clientFactory.CreateTryClient();
 
-            httpClient.BaseAddress = new Uri(_config.TronConfig.TronGrid);
+            httpClient.BaseAddress = new Uri(_config.TronConfig.TronApi);
 
-            if (isGrid)
-            {
-                httpClient.BaseAddress = new Uri(_config.TronConfig.TronGrid);
+            var num = new Random().Next(0, _config.TronConfig.TronApiKeys.Count);
 
-                var num = new Random().Next(0, _config.TronConfig.ApiKeys.Count);
+            var apiKey = _config.TronConfig.TronApiKeys[num];
 
-                var apiKey = _config.TronConfig.ApiKeys[num];
-
-                httpClient.SetHeaders(new Dictionary<string, string> {
-                    { "TRON-PRO-API-KEY", apiKey }
-                });
-            }
-            else
-            {
-                httpClient.BaseAddress = new Uri(_config.TronConfig.TronApi);
-
-                var num = new Random().Next(0, _config.TronConfig.TronApiKeys.Count);
-
-                var apiKey = _config.TronConfig.TronApiKeys[num];
-
-                httpClient.SetHeaders(new Dictionary<string, string> {
-                    { "TRON-PRO-API-KEY", apiKey }
-                });
-            }
+            httpClient.SetHeaders(new Dictionary<string, string> {
+                { "TRON-PRO-API-KEY", apiKey }
+            });
 
             try
             {
@@ -89,23 +71,67 @@ namespace TronListenBot.Svc.Core.Service
                 }
                 result = await rep.Content.ReadAsStringAsync();
 
-                _logger.LogInformation($"stopwatch path:{path},param:{data.ToJsonEx()}");
+                _logger.LogInformation($"RequestHandle path:{path},param:{data.ToJsonEx()}");
             }
             catch (TimeoutException ex)
             {
                 _logger.LogError($"访问超时,path:{path},param:{data.ToJsonEx()},msg:{ex.Message}");
-                //"{\"Msg\":\"" + ex.Message + "\",\"Code\":\"408\"}";
+                result = "{\"Msg\":\"" + ex.Message + "\",\"Code\":\"408\"}";
             }
             catch (Exception ex)
             {
                 _logger.LogError($"访问异常,path:{path},param:{data.ToJsonEx()},msg:{ex.Message}");
-                //if (ex.Message.IndexOf("timed out") >= 0 || ex.Message.IndexOf("Bad Gateway") >= 0)
-                //    result = "{\"Msg\":\"" + ex.Message + "\",\"Code\":\"408\"}";
-                //else
-                //    result = "{\"Msg\":\"" + ex.Message + "\",\"Code\":\"500\"}";
+                if (ex.Message.IndexOf("timed out") >= 0 || ex.Message.IndexOf("Bad Gateway") >= 0)
+                    result = "{\"Msg\":\"" + ex.Message + "\",\"Code\":\"408\"}";
+                else
+                    result = "{\"Msg\":\"" + ex.Message + "\",\"Code\":\"500\"}";
             }
 
-            return null;
+            return result;
+        }
+
+        private async Task<List<T>> GetPaginatedData<T>(Func<int, int, Task<string>> requestFunc,
+            Func<string, List<T>> deserializeFunc,
+            int totalNeeded,
+            int pageSize = 50)
+        {
+            var result = new List<T>();
+            var start = 0;
+
+            while (result.Count < totalNeeded)
+            {
+                try
+                {
+                    var response = await requestFunc(start, pageSize);
+
+                    // 检查错误响应
+                    if (IsErrorResponse(response))
+                    {
+                        _logger.LogWarning($"API 错误响应: {response}");
+                        break;
+                    }
+
+                    var pageData = deserializeFunc(response);
+
+                    if (pageData == null || pageData.Count == 0)
+                        break;
+
+                    result.AddRange(pageData);
+                    start += pageSize;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"分页请求异常 | Page: {start} | Error: {ex.Message}");
+                    break;
+                }
+            }
+
+            return result;
+        }
+
+        private bool IsErrorResponse(string response)
+        {
+            return response.Contains("message") || response.Contains("Msg");
         }
 
         public async Task<Accountv2> GetAccountv2(string address)
@@ -113,123 +139,90 @@ namespace TronListenBot.Svc.Core.Service
             var json = await RequestHandle(HttpMethod.Get, "/api/accountv2", new
             {
                 address
-            }, false);
+            });
 
-            if (json == null) return null;
+            if (json == null || IsErrorResponse(json)) return null;
 
             return JsonConvert.DeserializeObject<Accountv2>(json);
         }
 
-        public async Task<List<TransactionRecord>> GetTRC10Transactions(string address, int total)
+        public async Task<List<TransactionRecord>> GetTRXTransactions(string address, int total)
         {
-            var path = $"/v1/accounts/{address}/transactions";
-
-            var list = new List<TransactionRecord>();
-
-            var param = new
-            {
-                only_confirmed = true,
-                limit = 200,
-                order_by = "block_timestamp,desc"
-            };
-
-        GetList:
-            var result = await RequestHandle(HttpMethod.Get, path, param);
-
-            if (result == "0")
-                return list;
-
-            try
-            {
-                var json = JsonConvert.DeserializeObject<TronGridTRXTransactionInfoResult>(result);
-
-                //var datas = json.data.Where(a => a.raw_data.contract[0].type == "TransferContract" || a.raw_data.contract[0].type == "TransferAssetContract");
-                list.AddRange(json.data.Select(a => new TransactionRecord
+            return await GetPaginatedData(
+                requestFunc: async (start, limit) =>
                 {
-                    HashId = a.txID,
-                    Symbol = a.raw_data.contract[0].type == "TransferContract" ? CurrencyEnum.TRX.ToString() : "",
-                    TransactionType = a.raw_data.contract[0].parameter.value.to_address.ReplaceFirst() == address ? 1 : 2,
-                    Amount = TronUnit.SunToTRX(a.raw_data.contract[0].parameter.value.amount),
-                    TransactionTime = a.block_timestamp
-                }));
-
-                if (list.Count < total)
-                {
-                    if (json.meta.links != null)
+                    var param = new
                     {
-                        if (!string.IsNullOrEmpty(json.meta.links.next))
+                        start,
+                        limit = 50,
+                        address,
+                        token = "_",
+                        sort = "-timestamp"
+                    };
+                    return await RequestHandle(HttpMethod.Get, "/api/transfer", param);
+                },
+                deserializeFunc: (response) =>
+                {
+                    try
+                    {
+                        var json = JsonConvert.DeserializeObject<TronTransferResult>(response);
+                        return json?.Data?.Select(a => new TransactionRecord
                         {
-                            path = json.meta.links.next.Replace(_config.TronConfig.TronGrid, "");
-                            param = null;
-                            goto GetList;
-                        }
+                            HashId = a.TransactionHash,
+                            Symbol = CurrencyEnum.TRX.ToString(),
+                            TransactionType = a.TransferToAddress == address ? 1 : 2,
+                            Amount = TronUnit.SunToTRX(a.Amount),
+                            Timestamp = a.Timestamp
+                        }).ToList() ?? [];
                     }
-                }
-
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"序列化异常,result:{result},error:{ex.Message}");
-
-                return list;
-            }
-
-            return list;
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"序列化异常: {ex.Message}");
+                        return [];
+                    }
+                },
+                totalNeeded: total
+            );
         }
 
-        public async Task<List<TransactionRecord>> GetTRC20Transactions(string address, int total)
+        public async Task<List<TransactionRecord>> GetUSDTTransactions(string address, int total)
         {
-            var path = $"/v1/accounts/{address}/transactions/trc20";
-
-            var list = new List<TransactionRecord>();
-
-            var param = new
-            {
-                only_confirmed = true,
-                limit = 200,
-                //contract_address = _config.TronConfig.Contract
-            };
-
-        GetList:
-            var result = await RequestHandle(HttpMethod.Get, path, param);
-
-            if (result == "0")
-                return list;
-
-            try
-            {
-                var json = JsonConvert.DeserializeObject<TronGridTUSDTransactionInfoResult>(result);
-
-                list.AddRange(json.data.Select(a => new TransactionRecord
+            return await GetPaginatedData(
+                requestFunc: async (start, limit) =>
                 {
-                    HashId = a.transaction_id,
-                    Symbol = a.token_info.symbol == CurrencyEnum.USDT.ToString() ? CurrencyEnum.USDT.ToString() : a.token_info.symbol,
-                    TransactionType = a.to == address ? 1 : 2,
-                    Amount = TronUnit.SunToTRX(a.value), //Convert.ToDecimal(a.value) / 1000000
-                    TransactionTime = a.block_timestamp
-                }));
-
-                if (list.Count < total)
-                {
-                    if (json.meta.links != null)
+                    var param = new
                     {
-                        if (!string.IsNullOrEmpty(json.meta.links.next))
+                        start,
+                        limit = 50,
+                        contract_address = _config.TronConfig.Contract,
+                        relatedAddress = address
+                    };
+                    return await RequestHandle(HttpMethod.Get, "/api/token_trc20/transfers", param);
+                },
+                deserializeFunc: (response) =>
+                {
+                    try
+                    {
+                        var json = JsonConvert.DeserializeObject<TronTransferResult>(response);
+                        return json?.Token_Transfers?.Select(a => new TransactionRecord
                         {
-                            path = json.meta.links.next.Replace(_config.TronConfig.TronGrid, "");
-                            param = null;
-                            goto GetList;
-                        }
+                            HashId = a.Transaction_Id,
+                            Symbol = CurrencyEnum.USDT.ToString(),
+                            TransactionType = a.To_Address == address ? 1 : 2,
+                            Amount = TronUnit.SunToTRX(a.Quant),
+                            Timestamp = a.Block_Ts
+                        }).ToList() ?? [];
                     }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"序列化异常,result:{result},error:{ex.Message}");
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"序列化异常: {ex.Message}");
+                        return [];
+                    }
+                },
+                totalNeeded: total
+            );
 
-                return list;
-            }
-
-            return list;
         }
+
     }
 }
