@@ -15,7 +15,7 @@ namespace TronListenBot.Svc.Core.MR
         IConfigService config,
         ICacheService cache,
         ITelegramBotClient botClient,
-        ITronGridClient tronGridClient,
+        ITronApiClient tronApiClient,
         C2CBlock marketsBlock
         ) : IRequestHandler<TgMsgCommand>
     {
@@ -23,7 +23,7 @@ namespace TronListenBot.Svc.Core.MR
         readonly IConfigService _config = config;
         readonly ICacheService _cache = cache;
         readonly ITelegramBotClient _botClient = botClient;
-        readonly ITronGridClient _tronGridService = tronGridClient;
+        readonly ITronApiClient _tronApiService = tronApiClient;
         readonly C2CBlock _marketsBlock = marketsBlock;
 
         public async Task Handle(TgMsgCommand request, CancellationToken cancellationToken)
@@ -116,14 +116,14 @@ namespace TronListenBot.Svc.Core.MR
 
         async Task<string> AddressInfo(TgMsgCommand request)
         {
-            var account = await _tronGridService.GetAccountv2(_config.TronConfig.Address);
+            var account = await _tronApiService.GetAccountv2(_config.TronConfig.Address);
 
             if (account == null) return $"地址:'{_config.TronConfig.Address}'没查到数据！";
 
             //交易记录
             var transactions = new List<TransactionRecord>();
-            var trc10s = await _tronGridService.GetTRXTransactions(_config.TronConfig.Address, 50);
-            var trc20s = await _tronGridService.GetUSDTTransactions(_config.TronConfig.Address, 50);
+            var trc10s = await _tronApiService.GetTRXTransactions(_config.TronConfig.Address, 50);
+            var trc20s = await _tronApiService.GetUSDTTransactions(_config.TronConfig.Address, 50);
             transactions.AddRange(trc10s);
             transactions.AddRange(trc20s);
             var record = transactions.OrderByDescending(o => o.Timestamp).ToList();

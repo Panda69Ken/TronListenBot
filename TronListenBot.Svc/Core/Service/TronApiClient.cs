@@ -7,7 +7,7 @@ using TronNet;
 
 namespace TronListenBot.Svc.Core.Service
 {
-    public interface ITronGridClient
+    public interface ITronApiClient
     {
         /// <summary>
         /// 获取账户详细信息
@@ -29,7 +29,7 @@ namespace TronListenBot.Svc.Core.Service
         Task<List<TransactionRecord>> GetUSDTTransactions(string address, int total);
     }
 
-    public class TronGridClient(ILogger<TronGridClient> _logger, IConfigService _config, IHttpClientFactory _clientFactory) : ITronGridClient
+    public class TronApiClient(ILogger<TronApiClient> _logger, IConfigService _config, IHttpClientFactory _clientFactory) : ITronApiClient
     {
         private async Task<string?> RequestHandle(HttpMethod method, string path, object data = null)
         {

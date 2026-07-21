@@ -15,13 +15,13 @@ namespace TronListenBot.Svc.Core.MR.Transfer
     public class TransferNotifyHandler(ILogger<TransferNotifyHandler> logger,
         IConfigService config,
         ITelegramBotClient botClient,
-        ITronGridClient tronGridClient,
+        ITronApiClient tronApiService,
         TronNetRecord tron) : IRequestHandler<TransferCommand>
     {
         readonly ILogger<TransferNotifyHandler> _logger = logger;
         readonly IConfigService _config = config;
         readonly ITelegramBotClient _botClient = botClient;
-        readonly ITronGridClient _tronGridService = tronGridClient;
+        readonly ITronApiClient _tronApiService = tronApiService;
         readonly TronNetRecord _tron = tron;
 
         public async Task Handle(TransferCommand request, CancellationToken cancellationToken)
@@ -57,7 +57,7 @@ namespace TronListenBot.Svc.Core.MR.Transfer
                     var relatedAddress = request.Parameter.FromAddress == _config.TronConfig.Address ? request.Parameter.ToAddress : request.Parameter.FromAddress;
                     var symbol = request.Parameter.Symbol;
 
-                    var account = await _tronGridService.GetAccountv2(_config.TronConfig.Address);
+                    var account = await _tronApiService.GetAccountv2(_config.TronConfig.Address);
                     if (account == null)
                     {
                         _logger.LogWarning($"没查到数据，可能查询超时！");

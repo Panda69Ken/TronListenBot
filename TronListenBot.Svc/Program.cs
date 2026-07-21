@@ -57,7 +57,7 @@ builder.Services.AddSingleton<ITelegramBotClient>(sp =>
 });
 
 builder.Services.AddSingleton<TronQueries>();
-builder.Services.AddSingleton<ITronGridClient, TronGridClient>();
+builder.Services.AddSingleton<ITronApiClient, TronApiClient>();
 builder.Services.AddSingleton<IConfigService, ConfigService>();
 builder.Services.AddSingleton<ICacheService, CacheService>();
 

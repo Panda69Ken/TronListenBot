@@ -9,8 +9,10 @@ TronListenBot 是一个监控Tron地址交易信息的.Net 小程序，无需数
 ### 如何创建Telegram机器人
 关注机器[@BotFather](https://t.me/BotFather) ，输入指令 /newbot 按照提示即可快速创建。
 
-### 如何获得TronGrid Token
-访问 [TronGrid](https://www.trongrid.io/) 注册多个账号获取key，使用多个账号的key可以避开api风控 
+### 如何获得Tron API Key
+访问 [Tron](https://tronscan.org/myaccount/apiKeys) 注册多个账号获取key，使用多个账号的key可以避开api风控 
+
+
 
 ## AD -- Telegram机器人推广
 能量租赁交易监控机器人：[USDT、TRX交易监控](https://t.me/TronListen_bot)
