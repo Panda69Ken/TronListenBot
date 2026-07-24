@@ -66,6 +66,7 @@ builder.Services.AddSingleton<C2CBlock>();
 
 builder.Services.AddHostedService<TGWorker>();
 builder.Services.AddHostedService<ScanBlockWorker>();
+builder.Services.AddHostedService<TransferWorker>();
 
 var host = builder.Build();
 host.Run();

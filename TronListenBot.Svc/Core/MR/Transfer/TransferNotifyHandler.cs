@@ -8,7 +8,6 @@ using TronListenBot.Svc.Core.MR.Command;
 using TronListenBot.Svc.Core.Service;
 using TronNet;
 using TronNet.Protocol;
-using static TronNet.Protocol.Transaction.Types.Contract.Types;
 
 namespace TronListenBot.Svc.Core.MR.Transfer
 {
@@ -16,7 +15,7 @@ namespace TronListenBot.Svc.Core.MR.Transfer
         IConfigService config,
         ITelegramBotClient botClient,
         ITronApiClient tronApiService,
-        TronNetRecord tron) : IRequestHandler<TransferCommand>
+        TronNetRecord tron) : INotificationHandler<TransferCommand>
     {
         readonly ILogger<TransferNotifyHandler> _logger = logger;
         readonly IConfigService _config = config;
@@ -26,32 +25,21 @@ namespace TronListenBot.Svc.Core.MR.Transfer
 
         public async Task Handle(TransferCommand request, CancellationToken cancellationToken)
         {
-            var transaction = request.Transaction;
-            var type = transaction.Transaction.RawData.Contract[0].Type;
-
-            var unType = new List<ContractType> {
-                ContractType.WithdrawBalanceContract,
-                ContractType.CancelAllUnfreezeV2Contract,
-                ContractType.WithdrawExpireUnfreezeContract
+            var unType = new List<TransactionType> {
+                TransactionType.WithdrawBalanceContract,
+                TransactionType.CancelAllUnfreezeV2Contract,
+                TransactionType.WithdrawExpireUnfreezeContract
             };
 
-            if (request.Parameter.Amount == 0 && unType.Contains(type) == false) return;
+            if (request.Parameter.Amount == 0 && unType.Contains(request.Parameter.Type) == false) return;
 
-            if (request.ParamJson.IndexOf(_config.TronConfig.Address) > -1)
+            if (request.Parameter.FromAddress == _config.TronConfig.Address || request.Parameter.ToAddress == _config.TronConfig.Address)
             {
                 var wallet = _tron.TronClient.GetWallet();
 
                 try
                 {
-                    var timeDate = DateTime.UtcNow;
-
-                    var time = transaction.Transaction.RawData.Timestamp;
-
-                    if (time > 0 && Utils.IsPlausibleUnixMilliseconds(time))
-                    {
-                        timeDate = time.GetMilliTime();
-                    }
-                    timeDate = timeDate.AddHours(8);
+                    var timeDate = request.Parameter.TransactionTime.GetMilliTime().AddHours(8);
 
                     var text = "";
                     var relatedAddress = request.Parameter.FromAddress == _config.TronConfig.Address ? request.Parameter.ToAddress : request.Parameter.FromAddress;
@@ -64,10 +52,10 @@ namespace TronListenBot.Svc.Core.MR.Transfer
                         return;
                     }
 
-                    switch (type)
+                    switch (request.Parameter.Type)
                     {
-                        case ContractType.TransferContract:
-                        case ContractType.TriggerSmartContract:
+                        case TransactionType.TransferContract:
+                        case TransactionType.TriggerSmartContract:
                             var resultUsdt = account.WithPriceTokens.FirstOrDefault(a => a.TokenAbbr == CurrencyEnum.USDT.ToString());
 
                             var transactionType = request.Parameter.FromAddress == _config.TronConfig.Address ? "转出" : "转入";
@@ -83,16 +71,18 @@ namespace TronListenBot.Svc.Core.MR.Transfer
                             text += $"USDT余额 {TronUnit.SunToTRX(resultUsdt != null ? resultUsdt.Balance : 0)} USDT\n";
                             break;
 
-                        case ContractType.FreezeBalanceV2Contract:
-                        case ContractType.UnfreezeBalanceV2Contract:
+                        case TransactionType.FreezeBalanceV2Energy:
+                        case TransactionType.UnfreezeBalanceV2Energy:
+                        case TransactionType.FreezeBalanceV2Bandwidth:
+                        case TransactionType.UnfreezeBalanceV2Bandwidth:
                             var desFreeze = "质押";
                             var desFreeze1 = "获取";
                             var desFreeze2 = "能量";
 
-                            if (request.Parameter.Type == TransactionType.Bandwidth || request.Parameter.Type == TransactionType.UnBandwidth)
+                            if (request.Parameter.Type == TransactionType.FreezeBalanceV2Bandwidth || request.Parameter.Type == TransactionType.UnfreezeBalanceV2Bandwidth)
                                 desFreeze2 = "带宽";
 
-                            if (request.Parameter.Type == TransactionType.UnEnergy || request.Parameter.Type == TransactionType.UnBandwidth)
+                            if (request.Parameter.Type == TransactionType.UnfreezeBalanceV2Energy || request.Parameter.Type == TransactionType.UnfreezeBalanceV2Bandwidth)
                             {
                                 desFreeze = "解除";
                                 desFreeze1 = "失去";
@@ -112,9 +102,9 @@ namespace TronListenBot.Svc.Core.MR.Transfer
                             text += $"💵待领权益:{TronUnit.SunToTRX(account.RewardNum)} TRX\n";
                             break;
 
-                        case ContractType.WithdrawBalanceContract:
-                        case ContractType.CancelAllUnfreezeV2Contract:
-                        case ContractType.WithdrawExpireUnfreezeContract:
+                        case TransactionType.WithdrawBalanceContract:
+                        case TransactionType.CancelAllUnfreezeV2Contract:
+                        case TransactionType.WithdrawExpireUnfreezeContract:
                             var transactionInfo = await wallet.GetSolidityProtocol().GetTransactionInfoByIdAsync(new BytesMessage
                             {
                                 Value = wallet.ParseAddress(request.Txid)
@@ -122,12 +112,12 @@ namespace TronListenBot.Svc.Core.MR.Transfer
                             var typeName = "";
                             var text1 = "";
 
-                            if (type == ContractType.WithdrawBalanceContract)
+                            if (request.Parameter.Type == TransactionType.WithdrawBalanceContract)
                             {
                                 text = $"📣领取 {TronUnit.SunToTRX(transactionInfo.WithdrawAmount)} {symbol} 投票/出块奖励\n";
                                 typeName = "领取投票/出块奖励";
                             }
-                            if (type == ContractType.CancelAllUnfreezeV2Contract)
+                            if (request.Parameter.Type == TransactionType.CancelAllUnfreezeV2Contract)
                             {
                                 long totalFrozen = 0;
                                 foreach (var f in transactionInfo.CancelUnfreezeV2Amount)
@@ -142,7 +132,7 @@ namespace TronListenBot.Svc.Core.MR.Transfer
                                 text1 += $"💵能量: {account.Bandwidth.EnergyRemaining} / {account.Bandwidth.EnergyLimit}\n";
                                 text1 += $"💵已投票: {TronUnit.SunToTRX(account.FrozenForEnergyV2 + account.FrozenForBandWidthV2)}/{account.VoteTotal}\n";
                             }
-                            if (type == ContractType.WithdrawExpireUnfreezeContract)
+                            if (request.Parameter.Type == TransactionType.WithdrawExpireUnfreezeContract)
                             {
                                 text = $"📣提取 {TronUnit.SunToTRX(transactionInfo.WithdrawExpireAmount)} {symbol} 质押本金\n";
                                 typeName = "提取质押本金";
@@ -155,23 +145,25 @@ namespace TronListenBot.Svc.Core.MR.Transfer
                             text += $"💵TRX余额: {TronUnit.SunToTRX(account.Balance)} TRX\n";
                             break;
 
-                        case ContractType.DelegateResourceContract:
-                        case ContractType.UnDelegateResourceContract:
+                        case TransactionType.DelegateResourceEnergy:
+                        case TransactionType.UnDelegateResourceEnergy:
+                        case TransactionType.DelegateResourceBandwidth:
+                        case TransactionType.UnDelegateResourceBandwidth:
                             var desDelegate1 = "代理";
                             var desDelegate2 = "能量";
                             var desDelegate3 = "";
                             var delegateValue = 0M;
 
-                            if (request.Parameter.Type == TransactionType.UnDelegateEnergy || request.Parameter.Type == TransactionType.UnDelegateBandwidth)
+                            if (request.Parameter.Type == TransactionType.UnDelegateResourceEnergy || request.Parameter.Type == TransactionType.UnDelegateResourceBandwidth)
                             {
                                 desDelegate1 = "回收";
                                 desDelegate3 = "解除";
                             }
-                            if (request.Parameter.Type == TransactionType.DelegateEnergy || request.Parameter.Type == TransactionType.UnDelegateEnergy)
+                            if (request.Parameter.Type == TransactionType.DelegateResourceEnergy || request.Parameter.Type == TransactionType.UnDelegateResourceEnergy)
                             {
                                 delegateValue = TronUnit.SunToTRX(request.Parameter.Amount) / account.Bandwidth.TotalEnergyWeight * account.Bandwidth.TotalEnergyLimit;
                             }
-                            if (request.Parameter.Type == TransactionType.DelegateBandwidth || request.Parameter.Type == TransactionType.UnDelegateBandwidth)
+                            if (request.Parameter.Type == TransactionType.DelegateResourceBandwidth || request.Parameter.Type == TransactionType.UnDelegateResourceBandwidth)
                             {
                                 delegateValue = TronUnit.SunToTRX(request.Parameter.Amount) / account.Bandwidth.TotalNetWeight * account.Bandwidth.TotalNetLimit;
                                 desDelegate2 = "带宽";
@@ -197,7 +189,7 @@ namespace TronListenBot.Svc.Core.MR.Transfer
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError($"交易通知异常,node:{request.Node},param:{request.ParamJson},error:{ex.Message}");
+                    _logger.LogError($"交易通知异常,node:{request.Node},param:{request.Parameter.ToJsonEx()},error:{ex.Message}");
                 }
             }
         }

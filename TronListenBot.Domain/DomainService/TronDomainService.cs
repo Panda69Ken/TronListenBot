@@ -1,16 +1,20 @@
 ﻿using Microsoft.Extensions.Logging;
 using TronListenBot.Domain.Aggregates;
 using TronListenBot.Domain.Repositories;
+using TronListenBot.Infrastructure.Enums;
+using TronListenBot.Infrastructure.Expansion;
 
 namespace TronListenBot.Domain.DomainService
 {
     public class TronDomainService(ILogger<TronDomainService> logger,
         IFreeSql freeSql,
-        Repository<BlockNumber> blockNumberRepository
+        Repository<BlockNumber> blockNumberRepository,
+        Repository<TransactionRecord> transactionRecordRepository
         )
     {
         public readonly IFreeSql _freeSql = freeSql;
         private readonly Repository<BlockNumber> _blockNumberRepository = blockNumberRepository;
+        private readonly Repository<TransactionRecord> _transactionRecordRepository = transactionRecordRepository;
 
         /// <summary>
         /// 类似redis的StringIncrement函数
@@ -90,6 +94,38 @@ namespace TronListenBot.Domain.DomainService
                     .Where(a => a.Key == k)
                     .ExecuteAffrowsAsync();
             }
+        }
+
+        public async Task<(bool, string)> AddTransactionRecord(TransactionRecord data)
+        {
+            if (string.IsNullOrEmpty(data.HashId) || string.IsNullOrEmpty(data.FromAddress)) return (false, "参数为空");
+
+            using var uow = _freeSql.CreateUnitOfWork();
+
+            var exists = await uow.Orm.Select<TransactionRecord>().AnyAsync(a => a.HashId == data.HashId);
+
+            if (exists)
+            {
+                uow.Rollback();
+                return (false, $"HashId:{data.HashId}已存在！");
+            }
+
+            var aff = await uow.Orm.Insert(data).ExecuteAffrowsAsync();
+
+            uow.Commit();
+
+            return (aff > 0, aff > 0 ? "添加成功" : "添加失败");
+        }
+
+        public async Task<bool> UpdateTransactionStatus(long id, TransactionStatusEnum status)
+        {
+            var aff = await _transactionRecordRepository.UpdateDiy
+                .Set(a => a.Status == status)
+                .Set(a => a.ModifyTime == DateTime.UtcNow.GetTimeStamp())
+                .Where(a => a.Id == id)
+                .ExecuteAffrowsAsync();
+
+            return aff > 0;
         }
 
     }

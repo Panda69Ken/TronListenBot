@@ -1,4 +1,5 @@
 ﻿using TronListenBot.Domain.Aggregates;
+using TronListenBot.Infrastructure.Expansion;
 
 namespace TronListenBot.Domain.QueryServices
 {
@@ -19,6 +20,16 @@ namespace TronListenBot.Domain.QueryServices
                .FirstAsync(a => a.Value);
 
             return value;
+        }
+
+        public async Task<List<TransactionRecord>> GetTransactionRecord()
+        {
+            var dateTime = DateTime.UtcNow.GetTimeStamp();
+            return await _freeSql.Select<TransactionRecord>()
+                .Where(a => a.Status == Infrastructure.Enums.TransactionStatusEnum.Undetermined)
+                .Where(a => (dateTime - a.TransactionTime) <= 3600)
+                .OrderBy(o => o.Id)
+                .ToListAsync();
         }
 
     }

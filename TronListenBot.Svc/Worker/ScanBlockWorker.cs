@@ -21,7 +21,6 @@ namespace TronListenBot.Svc.Worker
 
             var wallet = _tron.TronClient.GetWallet();
             var walletFull = wallet.GetProtocol();
-            var walletSolidity = wallet.GetSolidityProtocol();
 
             var nodeList = new List<string> { "node1", "node2" };
             var key = "tron_block";
@@ -83,18 +82,18 @@ namespace TronListenBot.Svc.Worker
                             //当前区块比链上区块大 或者 还没产生最新区块，轮空等待
                             if (lastNumber >= latestHeight)
                             {
-                                _logger.LogWarning($"{node} 当前区块比链上区块大或者还没产生最新区块,轮空等待--Now:{lastNumber}--BlockHeight:{latestHeight}");
+                                //_logger.LogWarning($"{node} 当前区块比链上区块大或者还没产生最新区块,轮空等待--Now:{lastNumber}--BlockHeight:{latestHeight}");
                                 await Task.Delay(interval * 2, stoppingToken);
                                 continue;
                             }
 
                             //以 GetBlockByNum2 接口的交易为准
-                            var blockExt = await walletSolidity.GetBlockByNum2Async(new NumberMessage { Num = lastNumber }, 
+                            var blockExt = await walletFull.GetBlockByNum2Async(new NumberMessage { Num = lastNumber },
                                 headers: wallet.GetHeaders(), cancellationToken: stoppingToken);
 
                             if (blockExt.Transactions != null || blockExt.Transactions!.Count > 0)
                             {
-                                //_logger.LogWarning($"Task:{node}, Now Block:{lastNumber},nowBlockExt Count:{nowBlockExt.Transactions.Count()},blockExt Count:{blockExt.Transactions.Count()}");
+                                //_logger.LogWarning($"Task:{node}, 当前区块:{lastNumber},交易笔数:{blockExt.Transactions.Count}");
 
                                 _block.Post(new TransferModel
                                 {

@@ -62,7 +62,7 @@ namespace TronListenBot.Svc.Core.Expansion
                         ["toAddress"] = transfer.ToAddress != null ? Convert.ToHexString(transfer.ToAddress.ToByteArray()).ToLowerInvariant().ReplaceFirst() : null,
                         ["amount"] = transfer.Amount,
                         ["symbol"] = CurrencyEnum.TRX.ToString(),
-                        ["type"] = TransactionType.TRX
+                        ["type"] = TransactionType.TransferContract
                     };
                     return JsonSerializer.Serialize(result, options);
                 }
@@ -80,7 +80,7 @@ namespace TronListenBot.Svc.Core.Expansion
                         ["fromAddress"] = transfer.OwnerAddress != null ? Convert.ToHexString(transfer.OwnerAddress.ToByteArray()).ToLowerInvariant().ReplaceFirst() : null,
                         ["amount"] = transfer.FrozenBalance,
                         ["symbol"] = CurrencyEnum.TRX.ToString(),
-                        ["type"] = transfer.Resource == ResourceCode.Energy ? TransactionType.Energy : TransactionType.Bandwidth
+                        ["type"] = transfer.Resource == ResourceCode.Energy ? TransactionType.FreezeBalanceV2Energy : TransactionType.FreezeBalanceV2Bandwidth
                     };
                     return JsonSerializer.Serialize(result, options);
                 }
@@ -92,7 +92,7 @@ namespace TronListenBot.Svc.Core.Expansion
                         ["fromAddress"] = transfer.OwnerAddress != null ? Convert.ToHexString(transfer.OwnerAddress.ToByteArray()).ToLowerInvariant().ReplaceFirst() : null,
                         ["amount"] = transfer.UnfreezeBalance,
                         ["symbol"] = CurrencyEnum.TRX.ToString(),
-                        ["type"] = transfer.Resource == ResourceCode.Energy ? TransactionType.UnEnergy : TransactionType.UnBandwidth
+                        ["type"] = transfer.Resource == ResourceCode.Energy ? TransactionType.UnfreezeBalanceV2Energy : TransactionType.UnfreezeBalanceV2Bandwidth
                     };
                     return JsonSerializer.Serialize(result, options);
                 }
@@ -103,7 +103,7 @@ namespace TronListenBot.Svc.Core.Expansion
                     {
                         ["fromAddress"] = transfer.OwnerAddress != null ? Convert.ToHexString(transfer.OwnerAddress.ToByteArray()).ToLowerInvariant().ReplaceFirst() : null,
                         ["symbol"] = CurrencyEnum.TRX.ToString(),
-                        ["type"] = TransactionType.WithdrawTRX
+                        ["type"] = TransactionType.WithdrawBalanceContract
                     };
                     return JsonSerializer.Serialize(result, options);
                 }
@@ -116,7 +116,7 @@ namespace TronListenBot.Svc.Core.Expansion
                         ["toAddress"] = transfer.ReceiverAddress != null ? Convert.ToHexString(transfer.ReceiverAddress.ToByteArray()).ToLowerInvariant().ReplaceFirst() : null,
                         ["amount"] = transfer.Balance,
                         ["symbol"] = CurrencyEnum.TRX.ToString(),
-                        ["type"] = transfer.Resource == ResourceCode.Energy ? TransactionType.DelegateEnergy : TransactionType.DelegateBandwidth
+                        ["type"] = transfer.Resource == ResourceCode.Energy ? TransactionType.DelegateResourceEnergy : TransactionType.DelegateResourceBandwidth
                     };
                     return JsonSerializer.Serialize(result, options);
                 }
@@ -129,7 +129,7 @@ namespace TronListenBot.Svc.Core.Expansion
                         ["toAddress"] = transfer.ReceiverAddress != null ? Convert.ToHexString(transfer.ReceiverAddress.ToByteArray()).ToLowerInvariant().ReplaceFirst() : null,
                         ["amount"] = transfer.Balance,
                         ["symbol"] = CurrencyEnum.TRX.ToString(),
-                        ["type"] = transfer.Resource == ResourceCode.Energy ? TransactionType.UnDelegateEnergy : TransactionType.UnDelegateBandwidth
+                        ["type"] = transfer.Resource == ResourceCode.Energy ? TransactionType.UnDelegateResourceEnergy : TransactionType.UnDelegateResourceBandwidth
                     };
                     return JsonSerializer.Serialize(result, options);
                 }
@@ -140,7 +140,7 @@ namespace TronListenBot.Svc.Core.Expansion
                     {
                         ["fromAddress"] = transfer.OwnerAddress != null ? Convert.ToHexString(transfer.OwnerAddress.ToByteArray()).ToLowerInvariant().ReplaceFirst() : null,
                         ["symbol"] = CurrencyEnum.TRX.ToString(),
-                        ["type"] = TransactionType.CancelAllUnfreezeV2
+                        ["type"] = TransactionType.CancelAllUnfreezeV2Contract
                     };
                     return JsonSerializer.Serialize(result, options);
                 }
@@ -151,7 +151,7 @@ namespace TronListenBot.Svc.Core.Expansion
                     {
                         ["fromAddress"] = transfer.OwnerAddress != null ? Convert.ToHexString(transfer.OwnerAddress.ToByteArray()).ToLowerInvariant().ReplaceFirst() : null,
                         ["symbol"] = CurrencyEnum.TRX.ToString(),
-                        ["type"] = TransactionType.WithdrawExpireUnfreeze
+                        ["type"] = TransactionType.WithdrawExpireUnfreezeContract
                     };
                     return JsonSerializer.Serialize(result, options);
                 }
@@ -203,7 +203,7 @@ namespace TronListenBot.Svc.Core.Expansion
                     result["toAddress"] = tronHex.ReplaceFirst();
                     result["amount"] = amount.ToString();
                     result["symbol"] = CurrencyEnum.USDT.ToString();
-                    result["type"] = TransactionType.USDT;
+                    result["type"] = TransactionType.TriggerSmartContract;
                 }
             }
 
