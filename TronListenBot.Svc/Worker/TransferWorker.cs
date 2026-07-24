@@ -21,7 +21,7 @@ namespace TronListenBot.Svc.Worker
             _logger.LogInformation("TransferWorker running at: {time}", DateTimeOffset.Now);
 
             var wallet = _tron.TronClient.GetWallet();
-            var walletFull = wallet.GetProtocol();
+            var walletSolidity = wallet.GetSolidityProtocol();
 
             using var scope = _scopeFactory.CreateScope();
             var tronDomain = scope.ServiceProvider.GetRequiredService<TronDomainService>();
@@ -32,7 +32,7 @@ namespace TronListenBot.Svc.Worker
 
                 foreach (var item in list)
                 {
-                    var transaction = await walletFull.GetTransactionByIdAsync(new BytesMessage
+                    var transaction = await walletSolidity.GetTransactionByIdAsync(new BytesMessage
                     {
                         Value = wallet.ParseAddress(item.HashId)
                     }, cancellationToken: stoppingToken);
